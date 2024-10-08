@@ -30,7 +30,7 @@ interface Soart {
 }
 
 
-object BubbleSort : Soart {
+class BubbleSort : Soart {
     override val name: String
         get() = "bubble sort"
 
@@ -45,7 +45,6 @@ object BubbleSort : Soart {
             }
         }
     }
-
 }
 
 class QuickSort : Soart {
@@ -53,8 +52,8 @@ class QuickSort : Soart {
         get() = "quick sort"
 
     override fun sort(array: MutableList<Contact>) {
-        if (array.isNotEmpty()){
-            quickSort(array,0,array.size-1)
+        if (array.isNotEmpty()) {
+            quickSort(array, 0, array.size - 1)
         }
     }
 
@@ -85,7 +84,7 @@ class QuickSort : Soart {
 
 }
 
-object JumpSearch : Search {
+class JumpSearch : Search {
     override val name: String
         get() = "jump search"
 
@@ -134,35 +133,67 @@ class BinarySearch : Search {
 
 }
 
+class HashTableSearch : Search {
+    override val name: String
+        get() = "hash table"
+
+    private val hashTable = mutableMapOf<String, String>()
+    var buildTime: Long = 0
+        private set
+
+    private fun buildHashTable(contacts: List<Contact>) {
+        val startTime = System.currentTimeMillis()
+        contacts.forEach { hashTable[it.name] = it.phone }
+        buildTime = System.currentTimeMillis() - startTime
+    }
+
+    override fun search(array: List<Contact>, name: String): Contact? {
+        if (hashTable.isEmpty()) buildHashTable(array)
+        return hashTable[name]?.let { Contact(it, name) }
+    }
+
+}
+
+
 fun main() {
     searchQueries(LinearSearch())
     println()
-    searchQueries(JumpSearch, BubbleSort)
+    searchQueries(JumpSearch(), BubbleSort())
     println()
     searchQueries(BinarySearch(), QuickSort())
+    println()
+    searchQueries(HashTableSearch())
 }
 
 fun searchQueries(searchAlgorithm: Search, sortAlgorithm: Soart? = null) {
     val directoryEntries = File(directoryFilePath).readLines().map { Contact(it) }
     val phonebookEntries = File(phonebookFilePath).readLines()
 
-    printSearchStartMessage(searchAlgorithm, sortAlgorithm)
+    printSearchStartMessage(searchAlgorithm.name, sortAlgorithm?.name)
+
     val startTime = System.currentTimeMillis()
 
-    val sortedEntries = sortContacts(directoryEntries, sortAlgorithm)
-    val sortTime = elapsedTime(startTime)
+    if (searchAlgorithm is HashTableSearch) {
+        val foundEntriesCount = phonebookEntries.count { name ->
+            searchAlgorithm.search(directoryEntries, name) != null
+        }
+        val totalTime = System.currentTimeMillis() - startTime
+        val buildTime = searchAlgorithm.buildTime
+        printSearchResults(phonebookEntries.size, foundEntriesCount, buildTime, totalTime)
 
-    val foundEntriesCount = phonebookEntries.count { name ->
-        searchAlgorithm.search(sortedEntries, name) != null
+    } else {
+        val sortedEntries = sortContacts(directoryEntries, sortAlgorithm)
+        val sortTime = elapsedTime(startTime)
+        val foundEntriesCount = phonebookEntries.count { name ->
+            searchAlgorithm.search(sortedEntries, name) != null
+        }
+        val totalTime = elapsedTime(startTime)
+        printSearchResults(phonebookEntries.size, foundEntriesCount, totalTime, sortTime)
     }
 
-    val totalTime = elapsedTime(startTime)
-
-    printSearchResults(phonebookEntries.size, foundEntriesCount, totalTime, sortTime)
 }
 
-fun elapsedTime(startTime: Long): Long =
-    System.currentTimeMillis() - startTime
+fun elapsedTime(startTime: Long): Long = System.currentTimeMillis() - startTime
 
 
 private fun sortContacts(contacts: List<Contact>, sortAlgorithm: Soart?): List<Contact> {
@@ -173,11 +204,11 @@ private fun sortContacts(contacts: List<Contact>, sortAlgorithm: Soart?): List<C
     } ?: contacts
 }
 
-private fun printSearchStartMessage(searchAlgorithm: Search, sortAlgorithm: Soart?) {
+private fun printSearchStartMessage(searchAlgorithm: String, sortAlgorithm: String?) {
     val message = if (sortAlgorithm != null) {
-        "Start searching (${sortAlgorithm.name} + ${searchAlgorithm.name})..."
+        "Start searching (${sortAlgorithm} + ${searchAlgorithm})..."
     } else {
-        "Start searching (${searchAlgorithm.name})..."
+        "Start searching (${searchAlgorithm})..."
     }
     println(message)
 }
@@ -187,5 +218,8 @@ private fun printSearchResults(totalEntries: Int, foundEntries: Int, totalTime: 
     if (sortTime != 0L) {
         println("Sorting time: ${formatTime(sortTime)}")
         println("Searching time: ${formatTime(totalTime - sortTime)}")
+    } else {
+        println("Creating time: ${formatTime(totalTime)}")
+        println("Searching time: ${formatTime(sortTime)}")
     }
 }
